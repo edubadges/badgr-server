@@ -1,7 +1,7 @@
 # encoding: utf-8
-
 from json import dumps as json_dumps
 from json import loads as json_loads
+from urllib.parse import urljoin
 
 import badgrlog
 from apispec_drf.decorators import apispec_list_operation, apispec_operation
@@ -183,7 +183,7 @@ class IssuerStaffList(VersionedObjectMixin, APIView):
                                     'staff_pk': user_to_modify.pk,
                                     'role': role})
                 code = signing.dumps(obj=value, salt=getattr(settings, 'ACCOUNT_SALT', 'salty_stuff'))
-                url = user_to_modify.get_badgr_app().public_pages_redirect + '/accept-staff-membership/' + code
+                url = urljoin(user_to_modify.get_badgr_app().public_pages_redirect, '/accept-staff-membership/' + code)
                 message = EmailMessageMaker.create_staff_member_addition_email(url, current_issuer, role, expiration=settings.STAFF_MEMBER_CONFIRMATION_EXPIRE_DAYS)
                 user_to_modify.email_user(subject='You have been added to an Issuer',
                                           message=message)
