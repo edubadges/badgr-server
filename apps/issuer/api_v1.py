@@ -158,7 +158,7 @@ class IssuerStaffList(VersionedObjectMixin, APIView):
                     raise CachedEmailAddress.DoesNotExist
                 user_to_modify = matching_email[0].user
         except (get_user_model().DoesNotExist, CachedEmailAddress.DoesNotExist,):
-            error_text = "User not found. Email must be verified and correspond to an existing user."
+            error_text = "User not found. Email must be verified and correspond to an existing user with a teacher account."
             if user_id is None:
                 error_text = 'User not found. Neither email address or username was provided.'
             return Response(
