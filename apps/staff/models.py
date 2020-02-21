@@ -1,9 +1,9 @@
 import cachemodel
-from itertools import chain
 from django.db import models
 from django.conf import settings
 from django.forms.models import model_to_dict
 from signing.models import SymmetricKey
+
 
 class PermissionedModelMixin(object):
     """
@@ -45,7 +45,7 @@ class PermissionedModelMixin(object):
                 return staff
 
 
-class PermissionedNodeMixin(models.Model):
+class PermissionedRelationshipMixin(models.Model):
     """
     Abstract base class used for inheritance in all the Staff Many2Many relationship models
     """
@@ -67,7 +67,7 @@ class PermissionedNodeMixin(models.Model):
                                             'destroy', 'award', 'administrate_users'])
 
 
-class InstitutionStaff(PermissionedNodeMixin, cachemodel.CacheModel):
+class InstitutionStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
     Many2Many realtionship between Institution and users, with permissions added to the relationship
     """
@@ -84,7 +84,7 @@ class InstitutionStaff(PermissionedNodeMixin, cachemodel.CacheModel):
         return self.institution
 
 
-class FacultyStaff(PermissionedNodeMixin, cachemodel.CacheModel):
+class FacultyStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
     Many2Many realtionship between Faculty and users, with permissions added to the relationship
     """
@@ -95,7 +95,7 @@ class FacultyStaff(PermissionedNodeMixin, cachemodel.CacheModel):
         return self.faculty
 
 
-class IssuerStaff(PermissionedNodeMixin, cachemodel.CacheModel):
+class IssuerStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
     Many2Many realtionship between Issuer and users, with permissions added to the relationship
     """
@@ -151,8 +151,7 @@ class IssuerStaff(PermissionedNodeMixin, cachemodel.CacheModel):
         return Issuer.cached.get(pk=self.issuer_id)
 
 
-
-class BadgeClassStaff(PermissionedNodeMixin, cachemodel.CacheModel):
+class BadgeClassStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
 
     badgeclass = models.ForeignKey('issuer.BadgeClass', on_delete=models.CASCADE)
 
