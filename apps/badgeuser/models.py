@@ -153,7 +153,207 @@ class EmailAddressVariant(models.Model):
         return True
 
 
-class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
+class UserCachedObjectGetterMixin(object):
+    """
+    Base class to group all cached object-getter functionality of user, purely for readability
+    """
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_institution_staff(self):
+        return list(self.institutionstaff_set.all())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_faculty_staff(self):
+        return list(self.facultystaff_set.all())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_issuer_staff(self):
+        return list(self.issuerstaff_set.all())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_badgeclass_staff(self):
+        return list(self.badgeclassstaff_set.all())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def get_cached_issuers(self):
+        """find all readable issuers"""
+        raise NotImplementedError
+        # institution_staff = self.cached_institution_staff()
+        # faculty_staff = self.cached_faculty_staff()
+        # issuer_staff = self.cached_issuer_staff()
+        # unique_issuers =
+        # for staff_membership in staff_memberships:
+        #     if staff_membership.read:
+        #         if staff_membership.object.class is not Faculty:
+        #             faculty_set = set(staff_membership.object.faculties)
+
+    @cachemodel.cached_method(auto_publish=True)
+    def get_cached_badgeclasses(self):
+        """find all readable badges"""
+        raise NotImplementedError
+        # institution_staff = self.cached_institution_staff()
+        # faculty_staff = self.cached_faculty_staff()
+        # issuer_staff = self.cached_issuer_staff()
+        # badgeclass_staff = self.cached_badgeclass_staff()
+        # all_staff_memberships = institution_staff+faculty_staff+issuer_staff+badgeclass_staff
+        # unique_badgeclasses = set([])
+        # for staff_membership in all_staff_memberships:
+        #     if staff_membership.read:
+        #         if staff_membership.object.__class__ is not BadgeClass:
+        #             badgeclass_set = set(staff_membership.object.cached_badgeclasses)
+        #         else:
+        #             badgeclass_set = set(staff_membership.object)
+        #         unique_badgeclasses = unique_badgeclasses.union(badgeclass_set)
+        # return list(unique_badgeclasses)
+
+    @cachemodel.cached_method(auto_publish=True)
+    def get_cached_faculties(self):
+        """find all readable faculties"""
+        # institution_staff = self.cached_institution_staff()
+        # faculty_staff = self.cached_faculty_staff()
+        # faculties =
+        # for staff_membership in staff_memberships:
+        #     if staff_membership.read:
+        #         if staff_membership.object.class is not Faculty:
+        #             faculty_set = set(staff_membership.object.faculties)
+        #         else:
+        raise NotImplementedError
+
+    def cached_badgeclasses(self):
+        return chain.from_iterable(issuer.cached_badgeclasses() for issuer in self.cached_issuers())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_badgeinstances(self):
+        #         return BadgeInstance.objects.filter(recipient_identifier__in=self.all_recipient_identifiers)
+        return BadgeInstance.objects.filter(recipient_identifier=self.get_recipient_identifier())
+
+    #     @cachemodel.cached_method(auto_publish=True)
+    # turned it off, because if user logs in for FIRST time, this caching will result in the user having no verified emails.
+    # This results in api calls responding with a 403 after the failure of the AuthenticatedWithVerifiedEmail permission check.
+    # Which will logout the user automatically with the error: Token expired.
+    def cached_emails(self):
+        return CachedEmailAddress.objects.filter(user=self)
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_backpackcollections(self):
+        return BackpackCollection.objects.filter(created_by=self)
+
+    def cached_email_variants(self):
+        return chain.from_iterable(email.cached_variants() for email in self.cached_emails())
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_issuers(self):
+        '''
+        Creates a list of issuers belonging to the user's scope
+        '''
+        queryset = Issuer.objects.filter(staff__id=self.id) # personal issuers
+        if self.has_perm('badgeuser.has_institution_scope'):
+            institution = self.institution
+            if institution:
+                queryset = queryset | Issuer.objects.filter(faculty__institution=institution) # add insitution issuers
+        elif self.has_perm('badgeuser.has_faculty_scope'):
+            faculties = self.faculty.all()
+            if faculties:
+                queryset = queryset | Issuer.objects.filter(faculty__in=self.faculty.all()) # add faculty issuers
+        return queryset.distinct()
+
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_externaltools(self):
+        return [a.cached_externaltool for a in self.externaltooluseractivation_set.filter(is_active=True)]
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_token(self):
+        user_token, created = \
+                Token.objects.get_or_create(user=self)
+        return user_token.key
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_agreed_terms_version(self):
+        try:
+            return self.termsagreement_set.all().filter(valid=True).order_by('-terms_version')[0]
+        except IndexError:
+            pass
+        return None
+
+
+class UserPermissionsMixin(object):
+    """
+    Base class to group all permission functionality of user, purely for readability
+    """
+    def get_permissions(self, obj):
+        '''dubbbelop nu'''
+        return obj.get_permissions(self)
+
+
+    def gains_permission(self, permission_codename, model):
+        content_type = ContentType.objects.get_for_model(model)
+        permission = Permission.objects.get(codename=permission_codename, content_type=content_type)
+        self.user_permissions.add(permission)
+        # you still need to reload user from db to refresh permission cache if you want effect to be immediate
+
+    def loses_permission(self, permission_codename, model):
+        content_type = ContentType.objects.get_for_model(model)
+        permission = Permission.objects.get(codename=permission_codename, content_type=content_type)
+        self.user_permissions.remove(permission)
+        # you still need to reload user from db to refresh permission cache if you want effect to be immediate
+
+    @property
+    def may_sign_assertions(self):
+        return self.has_perm('signing.may_sign_assertions')
+
+    @property
+    def highest_group(self):
+        groups = list(self.groups.filter(entity_rank__rank__gte=0))
+        groups.sort(key=lambda x: x.entity_rank.rank)
+        if groups:
+            return groups[0]
+        else:
+            return None
+
+    def may_enroll(self, badge_class):
+        """
+        Checks to see if user may enroll
+            no enrollments: May enroll
+            any not awarded assertions: May not enroll
+            Any awarded and not revoked: May not enroll
+            All revoked: May enroll
+        """
+        social_account = self.get_social_account()
+        if social_account.provider == 'edu_id' or social_account.provider == 'surfconext_ala':
+            enrollments = StudentsEnrolled.objects.filter(user=social_account.user, badge_class_id=badge_class.pk)
+            if not enrollments:
+                return True # no enrollments
+            else:
+                for enrollment in enrollments:
+                    if not bool(enrollment.badge_instance): # has never been awarded
+                        return False
+                    else: #has been awarded
+                        if not enrollment.assertion_is_revoked():
+                            return False
+                return True # all have been awarded and revoked
+        else: # no eduID
+            return False
+
+    def staff_memberships(self):
+        """
+        Returns all staff memberships
+        """
+        return Issuer.objects.filter(staff__id=self.id)
+
+    def within_scope(self, object):
+        if object:
+            if self.has_perm('badgeuser.has_institution_scope'):
+                return object.institution == self.institution
+            if self.has_perm('badgeuser.has_faculty_scope'):
+                if object.faculty.__class__.__name__ == 'ManyRelatedManager':
+                    return bool(set(object.faculty.all()).intersection(set(self.faculty.all())))
+                else:
+                    return object.faculty in self.faculty.all()
+        return False
+
+
+class BadgeUser(UserCachedObjectGetterMixin, UserPermissionsMixin, BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
     """
     A full-featured user model that can be an Earner, Issuer, or Consumer of Open Badges
     """
@@ -191,90 +391,9 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
     def institution(self):
         return self.institution_set.get()
 
-    def within_scope(self, object):
-        if object:
-            if self.has_perm('badgeuser.has_institution_scope'):
-                return object.institution == self.institution
-            if self.has_perm('badgeuser.has_faculty_scope'):
-                if object.faculty.__class__.__name__ == 'ManyRelatedManager':
-                    return bool(set(object.faculty.all()).intersection(set(self.faculty.all())))
-                else:
-                    return object.faculty in self.faculty.all()
-        return False
-
-    def get_badgr_app(self):
-        if self.badgrapp:
-            return self.badgrapp
-        else:
-            return BadgrApp.objects.all().first()
-
-    def get_full_name(self):
-        return "%s %s" % (self.first_name, self.last_name)
-
-    def gains_permission(self, permission_codename, model):
-        content_type = ContentType.objects.get_for_model(model)
-        permission = Permission.objects.get(codename=permission_codename, content_type=content_type)
-        self.user_permissions.add(permission)
-        # you still need to reload user from db to refresh permission cache if you want effect to be immediate
-
-    def loses_permission(self, permission_codename, model):
-        content_type = ContentType.objects.get_for_model(model)
-        permission = Permission.objects.get(codename=permission_codename, content_type=content_type)
-        self.user_permissions.remove(permission)
-        # you still need to reload user from db to refresh permission cache if you want effect to be immediate
-
-    def email_user(self, subject, message, from_email=None, attachments=None, **kwargs):
-        """
-        Sends an email to this User.
-        """
-        try:
-            EmailBlacklist.objects.get(email=self.primary_email)
-        except EmailBlacklist.DoesNotExist:
-            # Allow sending, as this email is not blacklisted.
-            if not attachments:
-                send_mail(subject, message, from_email, [self.primary_email], **kwargs)
-            else:
-                from django.core.mail import EmailMessage
-                email = EmailMessage(subject=subject,
-                                     body=message,
-                                     from_email=from_email,
-                                     to=[self.primary_email],
-                                     attachments=attachments)
-                email.send()
-        else:
-            return
-            # TODO: Report email non-delivery somewhere.
-
-    def publish(self):
-        super(BadgeUser, self).publish()
-        self.publish_by('username')
-
-    def delete(self, *args, **kwargs):
-        super(BadgeUser, self).delete(*args, **kwargs)
-        self.publish_delete('username')
-
-#     @cachemodel.cached_method(auto_publish=True)
-    # turned it off, because if user logs in for FIRST time, this caching will result in the user having no verified emails. 
-    # This results in api calls responding with a 403 after the failure of the AuthenticatedWithVerifiedEmail permission check.
-    # Which will logout the user automatically with the error: Token expired.
-    def cached_emails(self):
-        return CachedEmailAddress.objects.filter(user=self)
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_backpackcollections(self):
-        return BackpackCollection.objects.filter(created_by=self)
-
     @property
     def email_items(self):
         return self.cached_emails()
-
-    @property
-    def may_sign_assertions(self):
-        return self.has_perm('signing.may_sign_assertions')
-
-    @property
-    def current_symmetric_key(self):
-        return self.symmetrickey_set.get(current=True)
 
     @email_items.setter
     def email_items(self, value):
@@ -325,8 +444,48 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
                 if emailaddress.email not in new_email_idx:
                     emailaddress.delete()
 
-    def cached_email_variants(self):
-        return chain.from_iterable(email.cached_variants() for email in self.cached_emails())
+    @property
+    def current_symmetric_key(self):
+        return self.symmetrickey_set.get(current=True)
+
+    def get_badgr_app(self):
+        if self.badgrapp:
+            return self.badgrapp
+        else:
+            return BadgrApp.objects.all().first()
+
+    def get_full_name(self):
+        return "%s %s" % (self.first_name, self.last_name)
+
+    def email_user(self, subject, message, from_email=None, attachments=None, **kwargs):
+        """
+        Sends an email to this User.
+        """
+        try:
+            EmailBlacklist.objects.get(email=self.primary_email)
+        except EmailBlacklist.DoesNotExist:
+            # Allow sending, as this email is not blacklisted.
+            if not attachments:
+                send_mail(subject, message, from_email, [self.primary_email], **kwargs)
+            else:
+                from django.core.mail import EmailMessage
+                email = EmailMessage(subject=subject,
+                                     body=message,
+                                     from_email=from_email,
+                                     to=[self.primary_email],
+                                     attachments=attachments)
+                email.send()
+        else:
+            return
+            # TODO: Report email non-delivery somewhere.
+
+    def publish(self):
+        super(BadgeUser, self).publish()
+        self.publish_by('username')
+
+    def delete(self, *args, **kwargs):
+        super(BadgeUser, self).delete(*args, **kwargs)
+        self.publish_delete('username')
 
     def can_add_variant(self, email):
         try:
@@ -366,15 +525,6 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
         return [self.get_recipient_identifier()]
 #         return [e.email for e in self.cached_emails() if e.verified] + [e.email for e in self.cached_email_variants()]
 
-    @property
-    def highest_group(self):
-        groups = list(self.groups.filter(entity_rank__rank__gte=0))
-        groups.sort(key=lambda x: x.entity_rank.rank)
-        if groups:
-            return groups[0]
-        else:
-            return None
-
     def get_recipient_identifier(self):
         from allauth.socialaccount.models import SocialAccount
         try:
@@ -399,12 +549,6 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
         social_account = self.get_social_account()
         return social_account.provider == 'surf_conext'
 
-    def staff_memberships(self):
-        """
-        Returns all staff memberships
-        """
-        return Issuer.objects.filter(staff__id=self.id)
-
     def is_email_verified(self, email):
         if email in [e.email for e in self.verified_emails]:
             return True
@@ -422,54 +566,12 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
         assertion_timestamps = AssertionTimeStamp.objects.filter(signer=self).exclude(proof='')
         return [ts.badge_instance for ts in assertion_timestamps if ts.badge_instance.signature == None]
 
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_issuers(self):
-        '''
-        Creates a list of issuers belonging to the user's scope
-        '''
-        queryset = Issuer.objects.filter(staff__id=self.id) # personal issuers
-        if self.has_perm('badgeuser.has_institution_scope'):
-            institution = self.institution
-            if institution:
-                queryset = queryset | Issuer.objects.filter(faculty__institution=institution) # add insitution issuers
-        elif self.has_perm('badgeuser.has_faculty_scope'):
-            faculties = self.faculty.all()
-            if faculties:
-                queryset = queryset | Issuer.objects.filter(faculty__in=self.faculty.all()) # add faculty issuers
-        return queryset.distinct()
-
     @property
     def peers(self):
         """
         a BadgeUser is a Peer of another BadgeUser if they appear in an IssuerStaff together
         """
         return set(chain(*[[s.cached_user for s in i.cached_issuerstaff()] for i in self.cached_issuers()]))
-
-    def cached_badgeclasses(self):
-        return chain.from_iterable(issuer.cached_badgeclasses() for issuer in self.cached_issuers())
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_badgeinstances(self):
-#         return BadgeInstance.objects.filter(recipient_identifier__in=self.all_recipient_identifiers)
-        return BadgeInstance.objects.filter(recipient_identifier=self.get_recipient_identifier())
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_externaltools(self):
-        return [a.cached_externaltool for a in self.externaltooluseractivation_set.filter(is_active=True)]
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_token(self):
-        user_token, created = \
-                Token.objects.get_or_create(user=self)
-        return user_token.key
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_agreed_terms_version(self):
-        try:
-            return self.termsagreement_set.all().filter(valid=True).order_by('-terms_version')[0]
-        except IndexError:
-            pass
-        return None
 
     @property
     def agreed_terms_version(self):
@@ -499,29 +601,6 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
         self.save()
         return self.cached_token()
 
-    def may_enroll(self, badge_class):
-        """
-        Checks to see if user may enroll
-            no enrollments: May enroll
-            any not awarded assertions: May not enroll
-            Any awarded and not revoked: May not enroll
-            All revoked: May enroll 
-        """
-        social_account = self.get_social_account()
-        if social_account.provider == 'edu_id' or social_account.provider == 'surfconext_ala':
-            enrollments = StudentsEnrolled.objects.filter(user=social_account.user, badge_class_id=badge_class.pk)
-            if not enrollments:
-                return True # no enrollments
-            else:
-                for enrollment in enrollments:
-                    if not bool(enrollment.badge_instance): # has never been awarded
-                        return False
-                    else: #has been awarded
-                        if not enrollment.assertion_is_revoked():
-                            return False
-                return True # all have been awarded and revoked
-        else: # no eduID
-            return False
 
     def save(self, *args, **kwargs):
         if not self.username:
