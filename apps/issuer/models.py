@@ -32,7 +32,7 @@ from rest_framework import serializers
 from signing import tsob
 from signing.models import AssertionTimeStamp, PublicKeyIssuer
 from signing.models import PublicKey, SymmetricKey
-from staff.models import BadgeClassStaff
+from staff.models import BadgeClassStaff, IssuerStaff
 
 from .utils import generate_sha256_hashstring, CURRENT_OBI_VERSION, get_obi_context, add_obi_version_ifneeded, \
     UNVERSIONED_BAKED_VERSION
@@ -139,7 +139,6 @@ class BaseOpenBadgeExtension(cachemodel.CacheModel):
         abstract = True
 
 
-
 class Issuer(ResizeUploadedImage,
              ScrubUploadedSvgImage,
              BaseAuditedModel,
@@ -147,8 +146,7 @@ class Issuer(ResizeUploadedImage,
              BaseOpenBadgeObjectModel):
     entity_class_name = 'Issuer'
 
-
-    staff = models.ManyToManyField(AUTH_USER_MODEL, through='IssuerStaff')
+    staff = models.ManyToManyField('badgeuser.BadgeUser', through='staff.IssuerStaff')
 
     # slug has been deprecated for now, but preserve existing values
     slug = models.CharField(max_length=255, blank=True, null=True, default=None)
@@ -167,18 +165,17 @@ class Issuer(ResizeUploadedImage,
     cached = SlugOrJsonIdCacheModelManager(slug_kwarg_name='entity_id', slug_field_name='entity_id')
     faculty = models.ForeignKey('institution.Faculty', on_delete=models.SET_NULL, blank=True, null=True, default=None)
 
-    # TODO: Perms, do this later
-    # @property
-    # def parent(self):
-    #     return self.faculty
-    #
-    # @cachemodel.cached_method(auto_publish=True)
-    # def cached_staff(self):
-    #     return list(IssuerStaff.objects.filter(issuer=self))
-    #
-    # @cachemodel.cached_method(auto_publish=True)
-    # def cached_badgeclasses(self):
-    #     return list(self.badgeclasses.all())
+    @property
+    def parent(self):
+        return self.faculty
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_staff(self):
+        return list(IssuerStaff.objects.filter(issuer=self))
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_badgeclasses(self):
+        return list(self.badgeclasses.all())
 
     def publish(self, *args, **kwargs):
         super(Issuer, self).publish(*args, **kwargs)
@@ -413,49 +410,6 @@ class Issuer(ResizeUploadedImage,
 
     def __unicode__(self):
         return self.name
-
-
-class IssuerStaff(cachemodel.CacheModel):
-    ROLE_OWNER = 'owner'
-    ROLE_EDITOR = 'editor'
-    ROLE_STAFF = 'staff'
-    ROLE_CHOICES = (
-        (ROLE_OWNER, 'Owner'),
-        (ROLE_EDITOR, 'Editor'),
-        (ROLE_STAFF, 'Staff'),
-    )
-    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE)
-    user = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.CharField(max_length=254, choices=ROLE_CHOICES, default=ROLE_STAFF)
-    is_signer = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = ('issuer', 'user')
-
-    def publish(self):
-        super(IssuerStaff, self).publish()
-        self.issuer.publish()
-        self.user.publish()
-
-    def delete(self, *args, **kwargs):
-        publish_issuer = kwargs.pop('publish_issuer', True)
-        super(IssuerStaff, self).delete()
-        if publish_issuer:
-            self.issuer.publish()
-        self.user.publish()
-
-    @property
-    def may_become_signer(self):
-        return self.user.may_sign_assertions and SymmetricKey.objects.filter(user=self.user, current=True).exists()
-
-    @property
-    def cached_user(self):
-        from badgeuser.models import BadgeUser
-        return BadgeUser.cached.get(pk=self.user_id)
-
-    @property
-    def cached_issuer(self):
-        return Issuer.cached.get(pk=self.issuer_id)
 
 
 class BadgeClass(ResizeUploadedImage,

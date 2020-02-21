@@ -1,8 +1,9 @@
 import cachemodel
 from itertools import chain
 from django.db import models
+from django.conf import settings
 from django.forms.models import model_to_dict
-
+from signing.models import SymmetricKey
 
 class PermissionedModelMixin(object):
     """
@@ -93,16 +94,62 @@ class FacultyStaff(PermissionedNodeMixin, cachemodel.CacheModel):
     def object(self):
         return self.faculty
 
-# TODO: Perms: do this one after the others as it replaces the other issuerstaff
-# class IssuerStaff(PermissionedNodeMixin, cachemodel.CacheModel):
-#     """
-#     Many2Many realtionship between Issuer and users, with permissions added to the relationship
-#     """
-#     issuer = models.ForeignKey('issuer.Issuer', on_delete=models.CASCADE)
-#
-#     @property
-#     def object(self):
-#         return self.issuer
+
+class IssuerStaff(PermissionedNodeMixin, cachemodel.CacheModel):
+    """
+    Many2Many realtionship between Issuer and users, with permissions added to the relationship
+    """
+
+    # ROLE_OWNER = 'owner'
+    # ROLE_EDITOR = 'editor'
+    # ROLE_STAFF = 'staff'
+    # ROLE_CHOICES = (
+    #     (ROLE_OWNER, 'Owner'),
+    #     (ROLE_EDITOR, 'Editor'),
+    #     (ROLE_STAFF, 'Staff'),
+    # )
+    issuer = models.ForeignKey('issuer.Issuer', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    # role = models.CharField(max_length=254, choices=ROLE_CHOICES, default=ROLE_STAFF)
+    # is_signer = models.BooleanField(default=False)
+
+    @property
+    def object(self):
+        return self.issuer
+
+    class Meta:
+        unique_together = ('issuer', 'user')
+
+    def publish(self):
+        super(IssuerStaff, self).publish()
+        self.issuer.publish()
+        self.user.publish()
+
+    def delete(self, *args, **kwargs):
+        publish_issuer = kwargs.pop('publish_issuer', True)
+        super(IssuerStaff, self).delete()
+        if publish_issuer:
+            self.issuer.publish()
+        self.user.publish()
+
+    @property
+    def may_become_signer(self):
+        return self.user.may_sign_assertions and SymmetricKey.objects.filter(user=self.user, current=True).exists()
+
+    @property
+    def is_signer(self):
+        return self.sign
+
+    @property
+    def cached_user(self):
+        from badgeuser.models import BadgeUser
+        return BadgeUser.cached.get(pk=self.user_id)
+
+    @property
+    def cached_issuer(self):
+        from issuer.models import Issuer
+        return Issuer.cached.get(pk=self.issuer_id)
+
 
 
 class BadgeClassStaff(PermissionedNodeMixin, cachemodel.CacheModel):
