@@ -32,7 +32,7 @@ from rest_framework import serializers
 from signing import tsob
 from signing.models import AssertionTimeStamp, PublicKeyIssuer
 from signing.models import PublicKey, SymmetricKey
-
+from staff.models import BadgeClassStaff
 
 from .utils import generate_sha256_hashstring, CURRENT_OBI_VERSION, get_obi_context, add_obi_version_ifneeded, \
     UNVERSIONED_BAKED_VERSION
@@ -166,6 +166,19 @@ class Issuer(ResizeUploadedImage,
     objects = IssuerManager()
     cached = SlugOrJsonIdCacheModelManager(slug_kwarg_name='entity_id', slug_field_name='entity_id')
     faculty = models.ForeignKey('institution.Faculty', on_delete=models.SET_NULL, blank=True, null=True, default=None)
+
+    # TODO: Perms, do this later
+    # @property
+    # def parent(self):
+    #     return self.faculty
+    #
+    # @cachemodel.cached_method(auto_publish=True)
+    # def cached_staff(self):
+    #     return list(IssuerStaff.objects.filter(issuer=self))
+    #
+    # @cachemodel.cached_method(auto_publish=True)
+    # def cached_badgeclasses(self):
+    #     return list(self.badgeclasses.all())
 
     def publish(self, *args, **kwargs):
         super(Issuer, self).publish(*args, **kwargs)
@@ -470,8 +483,18 @@ class BadgeClass(ResizeUploadedImage,
     objects = BadgeClassManager()
     cached = SlugOrJsonIdCacheModelManager(slug_kwarg_name='entity_id', slug_field_name='entity_id')
 
+    staff = models.ManyToManyField('badgeuser.BadgeUser', through="staff.BadgeClassStaff")
+
     class Meta:
         verbose_name_plural = "Badge classes"
+
+    @property
+    def parent(self):
+        return self.issuer
+
+    @cachemodel.cached_method(auto_publish=True)
+    def cached_staff(self):
+        return BadgeClassStaff.objects.filter(issuer=self)
 
     def publish(self):
         super(BadgeClass, self).publish()

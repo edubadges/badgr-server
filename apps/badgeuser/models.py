@@ -160,8 +160,6 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
     entity_class_name = 'BadgeUser'
 
     badgrapp = models.ForeignKey('mainsite.BadgrApp', on_delete=models.SET_NULL, blank=True, null=True, default=None)
-    faculty = models.ManyToManyField('institution.Faculty', blank=True)
-    institution = models.ForeignKey('institution.Institution', on_delete=models.SET_NULL, blank=True, null=True, default=None)
     is_staff = models.BooleanField(
         _('Backend-staff member'),
         default=False,
@@ -189,6 +187,9 @@ class BadgeUser(BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
     def __unicode__(self):
         return "{} <{}>".format(self.get_full_name(), self.email)
 
+    @property
+    def institution(self):
+        return self.institution_set.get()
 
     def within_scope(self, object):
         if object:
