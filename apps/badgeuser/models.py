@@ -157,7 +157,6 @@ class UserCachedObjectGetterMixin(object):
     """
     Base class to group all cached object-getter functionality of user, purely for readability
     """
-
     @cachemodel.cached_method(auto_publish=True)
     def cached_institution_staff(self):
         return list(self.institutionstaff_set.all())
@@ -174,53 +173,50 @@ class UserCachedObjectGetterMixin(object):
     def cached_badgeclass_staff(self):
         return list(self.badgeclassstaff_set.all())
 
-    @cachemodel.cached_method(auto_publish=True)
-    def get_cached_issuers(self):
-        """find all readable issuers"""
-        raise NotImplementedError
-        # institution_staff = self.cached_institution_staff()
-        # faculty_staff = self.cached_faculty_staff()
-        # issuer_staff = self.cached_issuer_staff()
-        # unique_issuers =
-        # for staff_membership in staff_memberships:
-        #     if staff_membership.read:
-        #         if staff_membership.object.class is not Faculty:
-        #             faculty_set = set(staff_membership.object.faculties)
+    def cached_faculties(self, permission):
+        """find all faculties for this permission"""
+        institution_staff = self.cached_institution_staff()
+        faculty_staff = self.cached_faculty_staff()
+        staff_memberships = institution_staff+faculty_staff
+        faculties = []
+        for staff_membership in staff_memberships:
+            if staff_membership.permissions[permission]:
+                if staff_membership.__class__.__name__ is not 'FacultyStaff':
+                    faculties.append(staff_membership.object.cached_faculties())
+                else:  # object is facultystaff
+                    faculties.append(staff_membership.object)
+        return list(set(faculties))
 
-    @cachemodel.cached_method(auto_publish=True)
-    def get_cached_badgeclasses(self):
-        """find all readable badges"""
-        raise NotImplementedError
-        # institution_staff = self.cached_institution_staff()
-        # faculty_staff = self.cached_faculty_staff()
-        # issuer_staff = self.cached_issuer_staff()
-        # badgeclass_staff = self.cached_badgeclass_staff()
-        # all_staff_memberships = institution_staff+faculty_staff+issuer_staff+badgeclass_staff
-        # unique_badgeclasses = set([])
-        # for staff_membership in all_staff_memberships:
-        #     if staff_membership.read:
-        #         if staff_membership.object.__class__ is not BadgeClass:
-        #             badgeclass_set = set(staff_membership.object.cached_badgeclasses)
-        #         else:
-        #             badgeclass_set = set(staff_membership.object)
-        #         unique_badgeclasses = unique_badgeclasses.union(badgeclass_set)
-        # return list(unique_badgeclasses)
+    def cached_issuers(self, permission):
+        """find all issuers for this permission"""
+        institution_staff = self.cached_institution_staff()
+        faculty_staff = self.cached_faculty_staff()
+        issuer_staff = self.cached_issuer_staff()
+        staff_memberships = institution_staff + faculty_staff + issuer_staff
+        issuers = []
+        for staff_membership in staff_memberships:
+            if staff_membership.permissions[permission]:
+                if staff_membership.__class__.__name__ is not 'IssuerStaff':
+                    issuers.append(staff_membership.object.cached_issuers())
+                else:
+                    issuers.append(staff_membership.object)
+        return list(set(issuers))
 
-    @cachemodel.cached_method(auto_publish=True)
-    def get_cached_faculties(self):
-        """find all readable faculties"""
-        # institution_staff = self.cached_institution_staff()
-        # faculty_staff = self.cached_faculty_staff()
-        # faculties =
-        # for staff_membership in staff_memberships:
-        #     if staff_membership.read:
-        #         if staff_membership.object.class is not Faculty:
-        #             faculty_set = set(staff_membership.object.faculties)
-        #         else:
-        raise NotImplementedError
-
-    def cached_badgeclasses(self):
-        return chain.from_iterable(issuer.cached_badgeclasses() for issuer in self.cached_issuers())
+    def cached_badgeclasses(self, permission):
+        """find all badgeclasses for this permission"""
+        institution_staff = self.cached_institution_staff()
+        faculty_staff = self.cached_faculty_staff()
+        issuer_staff = self.cached_issuer_staff()
+        badgeclass_staff = self.cached_badgeclass_staff()
+        all_staff_memberships = institution_staff+faculty_staff+issuer_staff+badgeclass_staff
+        badgeclasses = []
+        for staff_membership in all_staff_memberships:
+            if staff_membership.permissions[permission]:
+                if staff_membership.__class__.__name__ is not 'BadgeClassStaff':
+                    badgeclasses.append(staff_membership.object.cached_badgeclasses)
+                else:
+                    badgeclasses.append(staff_membership.object)
+        return list(set(badgeclasses))
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_badgeinstances(self):
@@ -240,23 +236,6 @@ class UserCachedObjectGetterMixin(object):
 
     def cached_email_variants(self):
         return chain.from_iterable(email.cached_variants() for email in self.cached_emails())
-
-    @cachemodel.cached_method(auto_publish=True)
-    def cached_issuers(self):
-        '''
-        Creates a list of issuers belonging to the user's scope
-        '''
-        queryset = Issuer.objects.filter(staff__id=self.id) # personal issuers
-        if self.has_perm('badgeuser.has_institution_scope'):
-            institution = self.institution
-            if institution:
-                queryset = queryset | Issuer.objects.filter(faculty__institution=institution) # add insitution issuers
-        elif self.has_perm('badgeuser.has_faculty_scope'):
-            faculties = self.faculty.all()
-            if faculties:
-                queryset = queryset | Issuer.objects.filter(faculty__in=self.faculty.all()) # add faculty issuers
-        return queryset.distinct()
-
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_externaltools(self):
@@ -390,6 +369,16 @@ class BadgeUser(UserCachedObjectGetterMixin, UserPermissionsMixin, BaseVersioned
     @property
     def institution(self):
         return self.institution_set.get()
+
+
+    @institution.setter
+    def institution(self, value):
+        """
+        :param value: Institution
+        :return: None
+        """
+        self.institution_set.add(value)
+
 
     @property
     def email_items(self):

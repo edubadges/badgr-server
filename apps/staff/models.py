@@ -62,7 +62,8 @@ class PermissionedRelationshipMixin(models.Model):
     class Meta:
         abstract = True
 
-    def permissions_to_dict(self):
+    @property
+    def permissions(self):
         return model_to_dict(self, fields = ['create', 'read', 'update',
                                             'destroy', 'award', 'administrate_users'])
 
