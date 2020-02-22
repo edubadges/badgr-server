@@ -261,9 +261,12 @@ class UserPermissionsMixin(object):
     Base class to group all permission functionality of user, purely for readability
     """
     def get_permissions(self, obj):
-        '''dubbbelop nu'''
+        """
+        Convenience method to get permissions for this user & object combination
+        :param obj: Instance of Institution, Faculty, Issuer or Badgeclass
+        :return: dictionary
+        """
         return obj.get_permissions(self)
-
 
     def gains_permission(self, permission_codename, model):
         content_type = ContentType.objects.get_for_model(model)
@@ -369,7 +372,6 @@ class BadgeUser(UserCachedObjectGetterMixin, UserPermissionsMixin, BaseVersioned
     @property
     def institution(self):
         return self.institution_set.get()
-
 
     @institution.setter
     def institution(self, value):

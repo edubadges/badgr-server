@@ -12,7 +12,10 @@ class PermissionedModelMixin(object):
     """
 
     def _get_local_permissions(self, user):
-        permissions = {}
+        """
+        :param user: BadgeUser (teacher)
+        :return: a permissions dictionary for the instance only, without looking higher in the hierarchy.
+        """
         staff = self.get_staff_member(user)
         if staff:
             return staff.permissions
@@ -20,6 +23,11 @@ class PermissionedModelMixin(object):
             return None
 
     def get_permissions(self, user):
+        """
+        This method returns (inherited or local) permissions for the instance by climbing the permission tree.
+        :param user: BadgeUser (teacher)
+        :return: a permissions dictionary
+        """
         try:
             parent_perms = self.parent.get_permissions(user)
             local_perms = self._get_local_permissions(user)
@@ -40,6 +48,11 @@ class PermissionedModelMixin(object):
         return self.cached_staff
 
     def get_staff_member(self, user):
+        """
+        Get a staff membership object belonging to the given user.
+        :param user: BadgeUser (teacher)
+        :return: Staff object
+        """
         for staff in self.staff_items:
             if staff.user == user:
                 return staff
@@ -100,19 +113,9 @@ class IssuerStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
     Many2Many realtionship between Issuer and users, with permissions added to the relationship
     """
-
-    # ROLE_OWNER = 'owner'
-    # ROLE_EDITOR = 'editor'
-    # ROLE_STAFF = 'staff'
-    # ROLE_CHOICES = (
-    #     (ROLE_OWNER, 'Owner'),
-    #     (ROLE_EDITOR, 'Editor'),
-    #     (ROLE_STAFF, 'Staff'),
-    # )
     issuer = models.ForeignKey('issuer.Issuer', on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     # role = models.CharField(max_length=254, choices=ROLE_CHOICES, default=ROLE_STAFF)
-    # is_signer = models.BooleanField(default=False)
 
     @property
     def object(self):
