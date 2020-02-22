@@ -183,7 +183,7 @@ class UserCachedObjectGetterMixin(object):
             if staff_membership.permissions[permission]:
                 if staff_membership.__class__.__name__ is not 'FacultyStaff':
                     faculties.append(staff_membership.object.cached_faculties())
-                else:  # object is facultystaff
+                else:
                     faculties.append(staff_membership.object)
         return list(set(faculties))
 
@@ -220,10 +220,9 @@ class UserCachedObjectGetterMixin(object):
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_badgeinstances(self):
-        #         return BadgeInstance.objects.filter(recipient_identifier__in=self.all_recipient_identifiers)
         return BadgeInstance.objects.filter(recipient_identifier=self.get_recipient_identifier())
 
-    #     @cachemodel.cached_method(auto_publish=True)
+    # @cachemodel.cached_method(auto_publish=True)
     # turned it off, because if user logs in for FIRST time, this caching will result in the user having no verified emails.
     # This results in api calls responding with a 403 after the failure of the AuthenticatedWithVerifiedEmail permission check.
     # Which will logout the user automatically with the error: Token expired.
