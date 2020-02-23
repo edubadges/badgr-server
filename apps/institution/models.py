@@ -24,13 +24,15 @@ class Institution(PermissionedModelMixin, cachemodel.CacheModel):
     @cachemodel.cached_method(auto_publish=True)
     def cached_issuers(self):
         r = []
-        [r.append(faculty.issuer_set.all()) for faculty in self.cached_faculties()]
+        for faculty in self.cached_faculties():
+            r += list(faculty.issuer_set.all())
         return r
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_badgeclasses(self):
         r = []
-        [r.append(issuer.cached_badgeclasses()) for issuer in self.cached_issuers()]
+        for issuer in self.cached_issuers():
+            r += list(issuer.cached_badgeclasses())
         return r
 
 

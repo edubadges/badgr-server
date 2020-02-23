@@ -216,9 +216,9 @@ class UserCachedObjectGetterMixin(object):
         for staff_membership in staff_memberships:
             if staff_membership.permissions[permission]:
                 if staff_membership.__class__.__name__ is not 'FacultyStaff':
-                    faculties.append(staff_membership.object.cached_faculties())
+                    faculties += staff_membership.object.cached_faculties()
                 else:
-                    faculties.append(staff_membership.object)
+                    faculties += [staff_membership.object]
         return list(set(faculties))
 
     def cached_issuers(self, permission):
@@ -235,9 +235,9 @@ class UserCachedObjectGetterMixin(object):
         for staff_membership in staff_memberships:
             if staff_membership.permissions[permission]:
                 if staff_membership.__class__.__name__ is not 'IssuerStaff':
-                    issuers.append(staff_membership.object.cached_issuers())
+                    issuers += staff_membership.object.cached_issuers()
                 else:
-                    issuers.append(staff_membership.object)
+                    issuers += [staff_membership.object]
         return list(set(issuers))
 
     def cached_badgeclasses(self, permission):
@@ -255,9 +255,9 @@ class UserCachedObjectGetterMixin(object):
         for staff_membership in all_staff_memberships:
             if staff_membership.permissions[permission]:
                 if staff_membership.__class__.__name__ is not 'BadgeClassStaff':
-                    badgeclasses.append(staff_membership.object.cached_badgeclasses)
+                    badgeclasses += staff_membership.object.cached_badgeclasses()
                 else:
-                    badgeclasses.append(staff_membership.object)
+                    badgeclasses += [staff_membership.object]
         return list(set(badgeclasses))
 
     @cachemodel.cached_method(auto_publish=True)
