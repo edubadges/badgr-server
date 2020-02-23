@@ -40,6 +40,25 @@ class PermissionedModelMixin(object):
     def staff_items(self):
         return self.cached_staff
 
+    def get_local_staff_members(self, permissions=None):
+        """
+        gets the staff members belonging to this object that have all of the permissions given
+        :param permissions: array of permissions required
+        :return: list of staff memberships that have this
+        """
+        result = []
+        if permissions:
+            for staff in self.staff_items:
+                has_perms = []
+                for perm in permissions:
+                    if staff.permissions[perm]:
+                        has_perms.append(perm)
+                if len(has_perms) == len(permissions):
+                    result.append(staff)
+            return result
+        else:
+            return self.staff_items
+
     def get_staff_member(self, user):
         """
         Get a staff membership object belonging to the given user.

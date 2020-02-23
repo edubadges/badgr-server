@@ -33,6 +33,8 @@ from signing import tsob
 from signing.models import AssertionTimeStamp, PublicKeyIssuer
 from signing.models import PublicKey, SymmetricKey
 from staff.models import BadgeClassStaff, IssuerStaff
+from staff.mixins import PermissionedModelMixin
+
 
 from .utils import generate_sha256_hashstring, CURRENT_OBI_VERSION, get_obi_context, add_obi_version_ifneeded, \
     UNVERSIONED_BAKED_VERSION
@@ -139,7 +141,8 @@ class BaseOpenBadgeExtension(cachemodel.CacheModel):
         abstract = True
 
 
-class Issuer(ResizeUploadedImage,
+class Issuer(PermissionedModelMixin,
+             ResizeUploadedImage,
              ScrubUploadedSvgImage,
              BaseAuditedModel,
              BaseVersionedEntity,
@@ -258,7 +261,8 @@ class Issuer(ResizeUploadedImage,
 
     @property
     def owners(self):
-        return self.staff.filter(issuerstaff__role=IssuerStaff.ROLE_OWNER)
+        return self.get_local_staff_members(['create', 'read', 'update', 'destroy', 'award', 'administrate_users'])
+        # return self.staff.filter(issuerstaff__role=IssuerStaff.ROLE_OWNER)
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_issuerstaff(self):
@@ -305,8 +309,9 @@ class Issuer(ResizeUploadedImage,
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_editors(self):
-        UserModel = get_user_model()
-        return UserModel.objects.filter(issuerstaff__issuer=self, issuerstaff__role=IssuerStaff.ROLE_EDITOR)
+        # UserModel = get_user_model()
+        # return UserModel.objects.filter(issuerstaff__issuer=self, issuerstaff__role=IssuerStaff.ROLE_EDITOR)
+        self.get_local_staff_members(['read', 'update', 'award'])
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_badgeclasses(self):
