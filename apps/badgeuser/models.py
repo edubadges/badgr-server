@@ -153,6 +153,22 @@ class EmailAddressVariant(models.Model):
         return True
 
 
+class AdministrateOtherUsersMixin(object):
+    """
+    Base class to group all administrate functionality for users, purely for readability
+    """
+    def get_administrable_staff(self):
+        """
+        :return: all staff memberships related to the object where user is staff, except for user's own staff memeberships
+        """
+        admin_staff_memberships = self.cached_staff('administrate_users')
+        all_related_staff_memberships = []
+        for staff in admin_staff_memberships:
+            related_staffs = staff.object.staff_items
+            all_related_staff_memberships.append([staff for staff in related_staffs if staff.user is not self])
+        return all_related_staff_memberships
+
+
 class UserCachedObjectGetterMixin(object):
     """
     Base class to group all cached object-getter functionality of user, purely for readability
@@ -173,8 +189,26 @@ class UserCachedObjectGetterMixin(object):
     def cached_badgeclass_staff(self):
         return list(self.badgeclassstaff_set.all())
 
+    def cached_staff(self, permission):
+        """
+        get all staff memeberships with this permission
+        :param permission: string
+        :return: list of unique staff memberships
+        """
+        institution_staff = self.cached_institution_staff()
+        faculty_staff = self.cached_faculty_staff()
+        issuer_staff = self.cached_issuer_staff()
+        badgeclass_staff = self.cached_badgeclass_staff()
+        all_staffs = institution_staff + faculty_staff + issuer_staff + badgeclass_staff
+        return [staff for staff in all_staffs if getattr(staff, permission)]
+
+
     def cached_faculties(self, permission):
-        """find all faculties for this permission"""
+        """
+        get all faculties for this permission
+        :param permission: string
+        :return: list of faculties
+        """
         institution_staff = self.cached_institution_staff()
         faculty_staff = self.cached_faculty_staff()
         staff_memberships = institution_staff+faculty_staff
@@ -188,7 +222,11 @@ class UserCachedObjectGetterMixin(object):
         return list(set(faculties))
 
     def cached_issuers(self, permission):
-        """find all issuers for this permission"""
+        """
+        get all issuers for this permission
+        :param permission: string
+        :return: list of issuers
+        """
         institution_staff = self.cached_institution_staff()
         faculty_staff = self.cached_faculty_staff()
         issuer_staff = self.cached_issuer_staff()
@@ -203,7 +241,11 @@ class UserCachedObjectGetterMixin(object):
         return list(set(issuers))
 
     def cached_badgeclasses(self, permission):
-        """find all badgeclasses for this permission"""
+        """
+        get all badgeclasses for this permission
+        :param permission: string
+        :return: list of badgeclasses
+        """
         institution_staff = self.cached_institution_staff()
         faculty_staff = self.cached_faculty_staff()
         issuer_staff = self.cached_issuer_staff()
@@ -334,7 +376,7 @@ class UserPermissionsMixin(object):
         return False
 
 
-class BadgeUser(UserCachedObjectGetterMixin, UserPermissionsMixin, BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
+class BadgeUser(AdministrateOtherUsersMixin, UserCachedObjectGetterMixin, UserPermissionsMixin, BaseVersionedEntity, AbstractUser, cachemodel.CacheModel):
     """
     A full-featured user model that can be an Earner, Issuer, or Consumer of Open Badges
     """

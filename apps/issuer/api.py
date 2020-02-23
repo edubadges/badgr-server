@@ -108,7 +108,7 @@ class AllBadgeClassesList(BaseEntityListView):
     valid_scopes = ["rw:issuer"]
 
     def get_objects(self, request, **kwargs):
-        return request.user.cached_badgeclasses()
+        return request.user.cached_badgeclasses('read')
 
     @apispec_list_operation('BadgeClass',
         summary="Get a list of BadgeClasses for authenticated user",

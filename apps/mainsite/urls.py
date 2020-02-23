@@ -125,6 +125,9 @@ urlpatterns = [
     #  include signing endpoints
     url(r'^signing/', include('signing.api_urls')),
 
+    # include staff endpoints
+    url(r'^staff/', include('staff.api_urls')),
+
 ]
 
 urlpatterns += [

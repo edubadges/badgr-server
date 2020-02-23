@@ -1,8 +1,8 @@
 import cachemodel
 from django.db import models
 from entity.models import BaseVersionedEntity
-from staff.models import PermissionedModelMixin, InstitutionStaff, FacultyStaff
-
+from staff.mixins import PermissionedModelMixin
+from staff.models import FacultyStaff, InstitutionStaff
 
 class Institution(PermissionedModelMixin, cachemodel.CacheModel):
     

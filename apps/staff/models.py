@@ -1,68 +1,13 @@
 import cachemodel
 from django.db import models
-from django.conf import settings
 from django.forms.models import model_to_dict
 from signing.models import SymmetricKey
-
-
-class PermissionedModelMixin(object):
-    """
-    Abstract class used for inheritance by all the Models (Badgeclass, Issuer, Faculty & Institution that have a related
-    Staff model. Used for retrieving permissions and staff members.
-    """
-
-    def _get_local_permissions(self, user):
-        """
-        :param user: BadgeUser (teacher)
-        :return: a permissions dictionary for the instance only, without looking higher in the hierarchy.
-        """
-        staff = self.get_staff_member(user)
-        if staff:
-            return staff.permissions
-        else:
-            return None
-
-    def get_permissions(self, user):
-        """
-        This method returns (inherited or local) permissions for the instance by climbing the permission tree.
-        :param user: BadgeUser (teacher)
-        :return: a permissions dictionary
-        """
-        try:
-            parent_perms = self.parent.get_permissions(user)
-            local_perms = self._get_local_permissions(user)
-            if not parent_perms:
-                return local_perms
-            elif not local_perms:
-                return parent_perms
-            else:
-                combined_perms = {}
-                for key in local_perms:
-                    combined_perms[key] = local_perms[key] if local_perms[key] > parent_perms[key] else parent_perms[key]
-                return combined_perms
-        except AttributeError:  # recursive base case
-            return self._get_local_permissions(user)
-
-    @property
-    def staff_items(self):
-        return self.cached_staff
-
-    def get_staff_member(self, user):
-        """
-        Get a staff membership object belonging to the given user.
-        :param user: BadgeUser (teacher)
-        :return: Staff object
-        """
-        for staff in self.staff_items:
-            if staff.user == user:
-                return staff
 
 
 class PermissionedRelationshipMixin(models.Model):
     """
     Abstract base class used for inheritance in all the Staff Many2Many relationship models
     """
-
     user = models.ForeignKey('badgeuser.BadgeUser', on_delete=models.CASCADE)
     create = models.BooleanField(default=False)
     read = models.BooleanField(default=False)
@@ -97,6 +42,11 @@ class InstitutionStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     def object(self):
         return self.institution
 
+    @property
+    def serializer_class(self):
+        from staff.serializers import InstitutionStaffSerializer
+        return InstitutionStaffSerializer
+
 
 class FacultyStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
@@ -108,21 +58,30 @@ class FacultyStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     def object(self):
         return self.faculty
 
+    @property
+    def serializer_class(self):
+        from staff.serializers import FacultyStaffSerializer
+        return FacultyStaffSerializer
+
 
 class IssuerStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
     Many2Many realtionship between Issuer and users, with permissions added to the relationship
     """
     issuer = models.ForeignKey('issuer.Issuer', on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     # role = models.CharField(max_length=254, choices=ROLE_CHOICES, default=ROLE_STAFF)
+
+    class Meta:
+        unique_together = ('issuer', 'user')
 
     @property
     def object(self):
         return self.issuer
 
-    class Meta:
-        unique_together = ('issuer', 'user')
+    @property
+    def serializer_class(self):
+        from staff.serializers import IssuerStaffSerializer
+        return IssuerStaffSerializer
 
     def publish(self):
         super(IssuerStaff, self).publish()
@@ -162,3 +121,8 @@ class BadgeClassStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     @property
     def object(self):
         return self.badgeclass
+
+    @property
+    def serializer_class(self):
+        from staff.serializers import BadgeClassStaffSerializer
+        return BadgeClassStaffSerializer

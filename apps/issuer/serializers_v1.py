@@ -20,7 +20,7 @@ from mainsite.validators import ChoicesValidator
 from rest_framework import serializers
 
 from . import utils
-from .models import Issuer, BadgeClass, IssuerStaff, BadgeInstance, BadgeClassExtension, IssuerExtension
+from .models import Issuer, BadgeClass, BadgeInstance, BadgeClassExtension, IssuerExtension  #, IssuerStaff
 
 
 class ExtensionsSaverMixin(object):
