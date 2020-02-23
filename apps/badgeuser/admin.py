@@ -106,7 +106,7 @@ class BadgeUserProxyAdmin(BadgeUserAdmin):
     ]
 
     def faculties(self, obj):
-        return [f.name for f in obj.faculty.all()]
+        return [f.name for f in obj.faculty_set.all()]
 
 badgr_admin.register(BadgeUserProxy, BadgeUserProxyAdmin)
 
