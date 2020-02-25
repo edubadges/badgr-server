@@ -453,7 +453,7 @@ class BadgeClass(ResizeUploadedImage,
 
     @cachemodel.cached_method(auto_publish=True)
     def cached_staff(self):
-        return BadgeClassStaff.objects.filter(issuer=self)
+        return BadgeClassStaff.objects.filter(badgeclass=self)
 
     def publish(self):
         super(BadgeClass, self).publish()
