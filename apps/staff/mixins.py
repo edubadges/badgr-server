@@ -38,7 +38,7 @@ class PermissionedModelMixin(object):
 
     @property
     def staff_items(self):
-        return self.cached_staff
+        return self.cached_staff()
 
     def get_local_staff_members(self, permissions=None):
         """

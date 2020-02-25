@@ -161,7 +161,7 @@ class AdministrateOtherUsersMixin(object):
         """
         :return: all staff memberships related to the object where user is staff, except for user's own staff memeberships
         """
-        admin_staff_memberships = self.cached_staff('administrate_users')
+        admin_staff_memberships = self.get_staff(['administrate_users'])
         all_related_staff_memberships = []
         for staff in admin_staff_memberships:
             related_staffs = staff.object.staff_items
@@ -189,10 +189,10 @@ class UserCachedObjectGetterMixin(object):
     def cached_badgeclass_staff(self):
         return list(self.badgeclassstaff_set.all())
 
-    def cached_staff(self, permission):
+    def get_staff(self, permissions):
         """
-        get all staff memeberships with this permission
-        :param permission: string
+        get user's staff memberships where user has all these permissions
+        :param permission: list of strings
         :return: list of unique staff memberships
         """
         institution_staff = self.cached_institution_staff()
@@ -200,13 +200,12 @@ class UserCachedObjectGetterMixin(object):
         issuer_staff = self.cached_issuer_staff()
         badgeclass_staff = self.cached_badgeclass_staff()
         all_staffs = institution_staff + faculty_staff + issuer_staff + badgeclass_staff
-        return [staff for staff in all_staffs if getattr(staff, permission)]
+        return [staff for staff in all_staffs if staff.has_permissions(permissions)]
 
-
-    def cached_faculties(self, permission):
+    def get_faculties(self, permissions):
         """
-        get all faculties for this permission
-        :param permission: string
+        get faculties where user has all these permissions for
+        :param permission: list of strings
         :return: list of faculties
         """
         institution_staff = self.cached_institution_staff()
@@ -214,17 +213,17 @@ class UserCachedObjectGetterMixin(object):
         staff_memberships = institution_staff+faculty_staff
         faculties = []
         for staff_membership in staff_memberships:
-            if staff_membership.permissions[permission]:
+            if staff_membership.has_permissions(permissions):
                 if staff_membership.__class__.__name__ is not 'FacultyStaff':
                     faculties += staff_membership.object.cached_faculties()
                 else:
                     faculties += [staff_membership.object]
         return list(set(faculties))
 
-    def cached_issuers(self, permission):
+    def get_issuers(self, permissions):
         """
-        get all issuers for this permission
-        :param permission: string
+        get issuers where user has all these permissions for
+        :param permission: list of strings
         :return: list of issuers
         """
         institution_staff = self.cached_institution_staff()
@@ -233,17 +232,17 @@ class UserCachedObjectGetterMixin(object):
         staff_memberships = institution_staff + faculty_staff + issuer_staff
         issuers = []
         for staff_membership in staff_memberships:
-            if staff_membership.permissions[permission]:
+            if staff_membership.has_permissions(permissions):
                 if staff_membership.__class__.__name__ is not 'IssuerStaff':
                     issuers += staff_membership.object.cached_issuers()
                 else:
                     issuers += [staff_membership.object]
         return list(set(issuers))
 
-    def cached_badgeclasses(self, permission):
+    def get_badgeclasses(self, permissions):
         """
-        get all badgeclasses for this permission
-        :param permission: string
+        get badgeclasses where user has all these permissions for
+        :param permission: list of strings
         :return: list of badgeclasses
         """
         institution_staff = self.cached_institution_staff()
@@ -253,7 +252,7 @@ class UserCachedObjectGetterMixin(object):
         all_staff_memberships = institution_staff+faculty_staff+issuer_staff+badgeclass_staff
         badgeclasses = []
         for staff_membership in all_staff_memberships:
-            if staff_membership.permissions[permission]:
+            if staff_membership.has_permissions(permissions):
                 if staff_membership.__class__.__name__ is not 'BadgeClassStaff':
                     badgeclasses += staff_membership.object.cached_badgeclasses()
                 else:
@@ -603,7 +602,9 @@ class BadgeUser(AdministrateOtherUsersMixin, UserCachedObjectGetterMixin, UserPe
         """
         a BadgeUser is a Peer of another BadgeUser if they appear in an IssuerStaff together
         """
-        return set(chain(*[[s.cached_user for s in i.cached_issuerstaff()] for i in self.cached_issuers()]))
+        # cached_issuers should become get_issuers
+        # return set(chain(*[[s.cached_user for s in i.cached_issuerstaff()] for i in self.cached_issuers()]))
+        raise NotImplementedError
 
     @property
     def agreed_terms_version(self):

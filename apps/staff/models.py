@@ -25,6 +25,19 @@ class PermissionedRelationshipMixin(models.Model):
         return model_to_dict(self, fields = ['create', 'read', 'update',
                                             'destroy', 'award', 'administrate_users'])
 
+    def has_permissions(self, permissions):
+        """
+        checks to see if all permissions are there
+        :param permissions: list of permissions
+        :return: Bool
+        """
+        has_perm_count = 0
+        own_perms = self.permissions
+        for perm in permissions:
+            if own_perms[perm]:
+                has_perm_count += 1
+        return len(permissions) == has_perm_count
+
 
 class InstitutionStaff(PermissionedRelationshipMixin, cachemodel.CacheModel):
     """
