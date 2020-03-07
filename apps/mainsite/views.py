@@ -27,13 +27,15 @@ from mainsite.admin_actions import clear_cache
 from mainsite.models import EmailBlacklist, BadgrApp
 from mainsite.serializers import VerifiedAuthTokenSerializer
 from pathway.tasks import resave_all_elements
-
+import logging
+import traceback
 ##
 #
 #  Error Handler Views
 #
 ##
 from theming.utils import get_theme
+logger = logging.getLogger('Badgr.Debug')
 
 
 @xframe_options_exempt
@@ -49,6 +51,7 @@ def error404(request):
 
 @xframe_options_exempt
 def error500(request):
+    logger.error({'stacktrace': traceback.extract_stack()})
     try:
         template = loader.get_template('error/500.html')
     except TemplateDoesNotExist:
