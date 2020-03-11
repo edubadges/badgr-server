@@ -38,7 +38,6 @@ from mainsite.serializers import CursorPaginatedListSerializer
 logger = badgrlog.BadgrLogger()
 
 import logging
-import traceback
 logger = logging.getLogger('Badgr.Debug')
 
 
@@ -417,31 +416,23 @@ class BadgeInstanceList(UncachedPaginatedViewMixin, VersionedObjectMixin, BaseEn
         recipients = request.data.pop('recipients')
         if not self.has_object_permissions(request, badgeclass):
             return Response(status=HTTP_404_NOT_FOUND)
-        logger.error({'location': 'post post permission2', 'stacktrace': traceback.extract_stack()})
         request.data['expires'] = datetime.datetime.strptime(request.data['expires_at'], '%d/%m/%Y') if request.data['expires_at'] else None
-        logger.error({'location': 'post strptime'})
         for recipient in recipients:
             if recipient['selected']:
-                logger.error({'location': 'in if selected'})
                 request.data['recipientprofile_name'] = recipient['recipient_name']
                 request.data['recipient_type'] = recipient['recipient_type']
                 request.data['recipient_identifier'] = recipient['recipient_identifier']
-                logger.error({'location': 'in if post getters'})
                 if recipient.get('extensions', False):
                     request.data['extensions'] = recipient['extensions']
-                logger.error({'location': 'post: pre super post', 'stacktrace': traceback.extract_stack()})
+                logger.error({'location': 'post: pre super post'})
                 response = super(BadgeInstanceList, self).post(request, **kwargs)
-                logger.error({'location': 'post: post super post', 'stacktrace': traceback.extract_stack()})
+                logger.error({'location': 'post: post super post'})
                 if response.status_code == 201:
-                    logger.error({'location': 'post: in if 201', 'stacktrace': traceback.extract_stack()})
                     badge_class = get_object_or_404(BadgeClass, entity_id=request.data.get('badge_class', -1))
-                    logger.error({'location': 'post: get or 404', 'stacktrace': traceback.extract_stack()})
                     most_recent_enrollment = StudentsEnrolled.objects.filter(badge_class=badge_class, user__socialaccount__uid=recipient['recipient_identifier']).last()
                     most_recent_enrollment.date_awarded = timezone.now()
                     most_recent_enrollment.assertion_slug = response.data.get('slug')
-                    logger.error({'location': 'post: got enrollment', 'stacktrace': traceback.extract_stack()})
                     most_recent_enrollment.save()
-        logger.error({'location': 'post out', 'stacktrace': traceback.extract_stack()})
         return response
 
 

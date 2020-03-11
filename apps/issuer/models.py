@@ -615,6 +615,7 @@ class BadgeClass(ResizeUploadedImage,
         return [pce for pce in self.completion_elements.all()]
 
     def issue(self, recipient_id=None, evidence=None, narrative=None, notify=False, created_by=None, allow_uppercase=False, badgr_app=None, **kwargs):
+        logger.error({'location': 'issue init'})
         return BadgeInstance.objects.create(
             badgeclass=self, recipient_identifier=recipient_id, narrative=narrative, evidence=evidence,
             notify=notify, created_by=created_by, allow_uppercase=allow_uppercase,
