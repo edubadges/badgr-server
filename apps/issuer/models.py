@@ -615,13 +615,23 @@ class BadgeClass(ResizeUploadedImage,
         return [pce for pce in self.completion_elements.all()]
 
     def issue(self, recipient_id=None, evidence=None, narrative=None, notify=False, created_by=None, allow_uppercase=False, badgr_app=None, **kwargs):
-        logger.error({'location': 'issue init'})
-        return BadgeInstance.objects.create(
+        args = { 'recipient_id': recipient_id,
+        'evidence': evidence,
+        'narrative' : narrative,
+        'notify': notify,
+        'created_by': created_by,
+        'allow_uppercase': allow_uppercase,
+        'badgr_app': badgr_app,
+        'kwargs': kwargs}
+        logger.error({ 'args': args, 'location': 'issue init'})
+        instance = BadgeInstance.objects.create(
             badgeclass=self, recipient_identifier=recipient_id, narrative=narrative, evidence=evidence,
             notify=notify, created_by=created_by, allow_uppercase=allow_uppercase,
             badgr_app=badgr_app,
             **kwargs
         )
+        logger.error({'location': 'issue out'})
+        return instance
 
     def issue_signed(self, signer=None, password=None, recipient_id=None, evidence=None, narrative=None, notify=False, created_by=None, allow_uppercase=False, badgr_app=None, **kwargs):
         if not signer.may_sign_assertions:
