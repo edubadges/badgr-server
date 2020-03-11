@@ -37,9 +37,6 @@ from mainsite.serializers import CursorPaginatedListSerializer
 
 logger = badgrlog.BadgrLogger()
 
-import logging
-logger = logging.getLogger('Badgr.Debug')
-
 
 class IssuerList(BaseEntityListView):
     """
@@ -424,9 +421,7 @@ class BadgeInstanceList(UncachedPaginatedViewMixin, VersionedObjectMixin, BaseEn
                 request.data['recipient_identifier'] = recipient['recipient_identifier']
                 if recipient.get('extensions', False):
                     request.data['extensions'] = recipient['extensions']
-                logger.error({'location': 'post: pre super post'})
                 response = super(BadgeInstanceList, self).post(request, **kwargs)
-                logger.error({'location': 'post: post super post'})
                 if response.status_code == 201:
                     badge_class = get_object_or_404(BadgeClass, entity_id=request.data.get('badge_class', -1))
                     most_recent_enrollment = StudentsEnrolled.objects.filter(badge_class=badge_class, user__socialaccount__uid=recipient['recipient_identifier']).last()

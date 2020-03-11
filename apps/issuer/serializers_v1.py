@@ -19,8 +19,6 @@ from mainsite.utils import OriginSetting
 from mainsite.validators import ChoicesValidator, BadgeExtensionValidator
 from .models import Issuer, BadgeClass, IssuerStaff, BadgeInstance, BadgeClassExtension, IssuerExtension
 
-import logging
-logger = logging.getLogger('Badgr.Debug')
 
 class ExtensionsSaverMixin(object):
     def remove_extensions(self, instance, extensions_to_remove):
@@ -429,7 +427,6 @@ class BadgeInstanceSerializerV1(OriginalJsonSerializerMixin, serializers.Seriali
         Requires self.context to include request (with authenticated request.user)
         and badgeclass: issuer.models.BadgeClass.
         """
-        logger.error({'location': 'create init'})
         evidence_items = []
         # ob1 evidence url
         evidence_url = validated_data.get('evidence')
