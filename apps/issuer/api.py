@@ -410,22 +410,23 @@ class BadgeInstanceList(UncachedPaginatedViewMixin, VersionedObjectMixin, BaseEn
         tags=['Assertions', 'BadgeClasses'],
     )
     def post(self, request, **kwargs):
-        logger.error({'location': 'post in', 'stacktrace': traceback.extract_stack()})
         # verify the user has permission to the badgeclass
         badgeclass = self.get_object(request, **kwargs)
         if not self.has_object_permissions(request, badgeclass):
             return Response(status=HTTP_404_NOT_FOUND)
-        logger.error({'location': 'post post permission', 'stacktrace': traceback.extract_stack()})
         recipients = request.data.pop('recipients')
         if not self.has_object_permissions(request, badgeclass):
             return Response(status=HTTP_404_NOT_FOUND)
         logger.error({'location': 'post post permission2', 'stacktrace': traceback.extract_stack()})
         request.data['expires'] = datetime.datetime.strptime(request.data['expires_at'], '%d/%m/%Y') if request.data['expires_at'] else None
+        logger.error({'location': 'post strptime'})
         for recipient in recipients:
             if recipient['selected']:
+                logger.error({'location': 'in if selected'})
                 request.data['recipientprofile_name'] = recipient['recipient_name']
                 request.data['recipient_type'] = recipient['recipient_type']
                 request.data['recipient_identifier'] = recipient['recipient_identifier']
+                logger.error({'location': 'in if post getters'})
                 if recipient.get('extensions', False):
                     request.data['extensions'] = recipient['extensions']
                 logger.error({'location': 'post: pre super post', 'stacktrace': traceback.extract_stack()})
