@@ -85,7 +85,6 @@ class IssuerDetail(BaseEntityDetailView):
        tags=["Issuers"],
    )
     def put(self, request, **kwargs):
-        mapExtensionsToDict(request)
         return super(IssuerDetail, self).put(request, **kwargs)
 
     @apispec_delete_operation('Issuer',
