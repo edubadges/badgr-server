@@ -1,6 +1,7 @@
 import base64
 import json
 import time
+import os
 
 from badgrsocialauth.utils import get_privacy_content
 from django import forms
@@ -10,6 +11,7 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseServerError, HttpResponseNotFound
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
+from django.views.static import serve
 from django.template import loader, TemplateDoesNotExist
 from django.urls import reverse_lazy
 from django.utils import translation
@@ -18,6 +20,7 @@ from django.views import View
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import FormView, RedirectView, TemplateView
 from issuer.tasks import rebake_all_assertions, update_issuedon_all_assertions
+from issuer.models import BadgeInstance
 from mainsite.admin_actions import clear_cache
 from mainsite.models import EmailBlacklist, BadgrApp
 from mainsite.serializers import VerifiedAuthTokenSerializer
@@ -229,3 +232,21 @@ class AcceptTermsAndConditionsView(View):
         pass
 
 
+def serve_protected_document(request, path, document_root):
+
+    def user_is_authorized(request, filename):
+        entity_id = filename.replace('assertion-', '')
+        assertion = BadgeInstance.objects.get(entity_id=entity_id)
+        if assertion.public:
+            return True
+        else:
+            if request.user.is_authenticated:
+                if request.user is assertion.user:
+                    return True
+        return False
+
+    if 'assertion-' in path:
+        filename = os.path.splitext(os.path.basename(path))[0]
+        if not user_is_authorized(request, filename):
+            return HttpResponseForbidden()
+    return serve(request, path, document_root)
