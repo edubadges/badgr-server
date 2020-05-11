@@ -236,6 +236,7 @@ class AcceptTermsAndConditionsView(View):
 
 def serve_protected_document(request, path, document_root):
     logger.error('serve_protected_document ' + path)
+    raise NotImplementedError
     if 'assertion-' in path:
         assertion = BadgeInstance.objects.get(image=path)
         if assertion.public:
