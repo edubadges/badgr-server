@@ -1,7 +1,7 @@
 import base64
 import json
 import time
-import os
+import logging
 
 from badgrsocialauth.utils import get_privacy_content
 from django import forms
@@ -31,6 +31,8 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+
+logger = logging.getLogger('Badgr.Debug')
 ##
 #
 #  Error Handler Views
@@ -233,6 +235,7 @@ class AcceptTermsAndConditionsView(View):
 
 
 def serve_protected_document(request, path, document_root):
+    logger.error('serve_protected_document ' + path)
     if 'assertion-' in path:
         assertion = BadgeInstance.objects.get(image=path)
         if assertion.public:
