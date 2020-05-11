@@ -764,7 +764,7 @@ class BadgeInstance(BaseAuditedModel,
     recipient_identifier = models.CharField(max_length=512, blank=False, null=False, db_index=True)
     recipient_type = models.CharField(max_length=255, choices=RECIPIENT_TYPE_CHOICES, default=RECIPIENT_TYPE_EDUID, blank=False, null=False)
 
-    image = models.FileField(upload_to='uploads/badges', blank=True)
+    image = models.FileField(upload_to='uploads/badges', blank=True, db_index=True)
 
     # slug has been deprecated for now, but preserve existing values
     slug = models.CharField(max_length=255, blank=True, null=True, default=None)
