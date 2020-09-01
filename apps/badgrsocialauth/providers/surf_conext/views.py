@@ -15,7 +15,6 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from ims.models import LTITenant
 from institution.models import Institution
-from jose import jwt
 from lti_edu.models import LtiBadgeUserTennant, UserCurrentContextId
 from mainsite.models import BadgrApp
 
@@ -64,9 +63,7 @@ def login(request):
             'response_type': 'code',
             # SURFconext does not support other scopes, as such the complete OpenID flow is not supported
             'scope': 'openid',
-            'state': state,
-            "claims": "{\"id_token\":{\"preferred_username\":null,\"given_name\":null,"
-                      "\"family_name\":null,\"email\":null,\"schac_home_organization\":null}}"
+            'state': state
             }
             
     redirect_url = settings.SURFCONEXT_DOMAIN_URL + '/authorize?%s' %  (urllib.parse.urlencode(data))
@@ -89,14 +86,15 @@ def after_terms_agreement(request, **kwargs):
     set_session_badgr_app(request, BadgrApp.objects.get(pk=badgr_app_pk))
 
     lti_data = request.session.get('lti_data', None)
+    url = settings.SURFCONEXT_DOMAIN_URL + '/userinfo'
 
-    id_token = kwargs.get('access_token', None)
-    if not id_token:
-        error = 'Sorry, we could not find your SURFconext credentials.'
-        return render_authentication_error(request, SurfConextProvider.id, error)
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        error = 'Server error: User info endpoint error (http %s). Try alternative login methods' % response.status_code
+        return render_authentication_error(request, SurfConextProvider.id, error=error)
 
-    extra_data = jwt.get_unverified_claims(id_token)
-
+    # retrieved data in fields and ensure that email & sud are in extra_data
+    extra_data = response.json()
 
     if 'email' not in extra_data or 'sub' not in extra_data:
         error = 'Sorry, your account has no email attached from SURFconext, try another login method.'
@@ -201,28 +199,34 @@ def callback(request):
             'grant_type': 'authorization_code',
             'code': code}
 
-    headers = {'Content-Type': "application/x-www-form-urlencoded",
-               'Cache-Control': "no-cache"
-               }
-    # url = settings.SURFCONEXT_DOMAIN_URL + '/token?%s' % (urllib.parse.urlencode(data))
+    url =  settings.SURFCONEXT_DOMAIN_URL + '/token?%s' % (urllib.parse.urlencode(data))
 
-    response = requests.post(f"{settings.SURFCONEXT_DOMAIN_URL}/token", data=urllib.parse.urlencode(data),
-                             headers=headers)
+    response = requests.post(url)
+
     if response.status_code != 200:
         error = 'Server error: Token endpoint error (http %s) try alternative login methods' % response.status_code
         return render_authentication_error(request, SurfConextProvider.id, error=error)
 
-
     data = response.json()
-    id_token = data.get('id_token', None)
-
-    if id_token is None:
-        error = 'Server error: No id_token token, try alternative login methods.'
+    access_token = data.get('access_token', None)
+    if access_token is None:
+        error = 'Server error: No access token, try alternative login methods.'
         return render_authentication_error(request, SurfConextProvider.id, error=error)
 
-    extra_data = jwt.get_unverified_claims(id_token)
+    # 2. Retrieve user information with the access token
+    headers = {'Authorization': 'bearer %s' % data['access_token']}
 
-    keyword_arguments = {'access_token': id_token,
+    url = settings.SURFCONEXT_DOMAIN_URL + '/userinfo'
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        error = 'Server error: User info endpoint error (http %s). Try alternative login methods' % response.status_code
+        return render_authentication_error(request, SurfConextProvider.id, error=error)
+
+    # retrieved data in fields and ensure that email & sud are in extra_data
+    extra_data = response.json()
+
+    keyword_arguments = {'access_token': access_token,
                          'state': json.dumps([badgr_app_pk, 'surf_conext' ,process, auth_token,lti_data, lti_user_id,lti_roles,referer]),
                          'after_terms_agreement_url_name': 'surf_conext_terms_accepted_callback'}
      
