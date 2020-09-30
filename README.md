@@ -1,3 +1,10 @@
+🚨 Warning
+
+This repository is DEPRECATED and not maintained anymore. Fork and use at your own risk.
+
+It is superseded by edubadges-server. See https://github.com/edubadges/edubadges-server.
+
+
 ![Edubadges](logo.png)
 # Edubadges Server (Backend)
 

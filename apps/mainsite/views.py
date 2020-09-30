@@ -10,6 +10,7 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseServerError, HttpResponseNotFound
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
+from django.views.static import serve
 from django.template import loader, TemplateDoesNotExist
 from django.urls import reverse_lazy
 from django.utils import translation
@@ -18,6 +19,7 @@ from django.views import View
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import FormView, RedirectView, TemplateView
 from issuer.tasks import rebake_all_assertions, update_issuedon_all_assertions
+from issuer.models import BadgeInstance
 from mainsite.admin_actions import clear_cache
 from mainsite.models import EmailBlacklist, BadgrApp
 from mainsite.serializers import VerifiedAuthTokenSerializer
@@ -27,6 +29,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 
 ##
 #
@@ -229,3 +232,14 @@ class AcceptTermsAndConditionsView(View):
         pass
 
 
+def serve_protected_document(request, path, document_root):
+    if 'assertion-' in path:
+        assertion = BadgeInstance.objects.get(image=path)
+        if assertion.public:
+            return serve(request, path, document_root)
+        else:
+            if request.user.is_authenticated:
+                if request.user is assertion.user:
+                    return serve(request, path, document_root)
+        return HttpResponseForbidden()
+    return serve(request, path, document_root)
